@@ -148,6 +148,8 @@ allow-newer: *:base
 allow-newer: *:tempalte-haskell
 allow-newer: *:ghc-prim
 
+allow-newer: ghc-debug-stub:*
+
 -- -------------------------------------------------------------------------- --
 -- Upper Bounds
 
