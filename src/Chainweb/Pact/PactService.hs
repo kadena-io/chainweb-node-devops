@@ -775,14 +775,15 @@ execPreInsertCheckReq
     => Vector ChainwebTransaction
     -> PactServiceM tbl (Vector (Either Mempool.InsertError ChainwebTransaction))
 execPreInsertCheckReq txs = withDiscardedBatch $ do
-    parent <- use psParentHeader
+    parent <- syncParentHeader "execPreInsertCheckReq"
     let currHeight = succ $ _blockHeight $ _parentHeader parent
     psEnv <- ask
     psState <- get
     let parentTime = ParentCreationTime $ _blockCreationTime $ _parentHeader parent
     cp <- getCheckpointer
     logger <- view psLogger
-    withCurrentCheckpointer "execPreInsertCheckReq" $ \pdb -> do
+
+    withCheckpointerRewind Nothing (Just parent) "execPreInsertCheckReq" $ \pdb -> do
       let v = _chainwebVersion psEnv
           cid = _chainId psEnv
       liftIO $ fmap Discard $
@@ -802,11 +803,9 @@ execLookupPactTxs restorePoint confDepth txs
     | otherwise = go
   where
     go = getCheckpointer >>= \(!cp) -> case restorePoint of
-      NoRewind _ ->
-        liftIO $! _cpLookupProcessedTx cp confDepth txs
       DoRewind parent -> withDiscardedBatch $ do
         withCheckpointerRewind Nothing (Just $ ParentHeader parent) "lookupPactTxs" $ \_ ->
-          liftIO $ Discard <$> _cpLookupProcessedTx cp confDepth txs
+          liftIO $ Discard <$> _cpLookupProcessedTx cp (_blockHeight parent) confDepth txs
 
 -- | Modified table gas module with free module loads
 --
