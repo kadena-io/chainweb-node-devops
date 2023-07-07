@@ -318,8 +318,9 @@ validatingMempoolConfig cid v gl gp mv = Mempool.InMemConfig
         -> IO (V.Vector (Either (T2 Mempool.TransactionHash Mempool.InsertError)
                                 (T2 Mempool.TransactionHash ChainwebTransaction)))
     preInsertBatch txs = do
+        -- TODO: get current block header
         pex <- readMVar mv
-        rs <- _pactPreInsertCheck pex cid (V.map ssnd txs) >>= either throwM pure
+        rs <- _pactPreInsertCheck pex cid undefined (V.map ssnd txs) >>= either throwM pure
         pure $ alignWithV f rs txs
       where
         f (These r (T2 h t)) = case r of
