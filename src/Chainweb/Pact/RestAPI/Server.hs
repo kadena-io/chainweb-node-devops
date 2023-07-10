@@ -187,7 +187,7 @@ pactServer d =
       = sendHandler logger mempool
       :<|> pollHandler logger cdb cid pact mempool
       :<|> listenHandler logger cdb cid pact mempool
-      :<|> localHandler logger pact
+      :<|> localHandler logger cdb pact
 
     pactSpvHandler = spvHandler logger cdb cid
     pactSpv2Handler = spv2Handler logger cdb cid
