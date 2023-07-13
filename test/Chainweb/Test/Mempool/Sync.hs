@@ -20,6 +20,7 @@ import Test.QuickCheck hiding ((.&.))
 import Test.QuickCheck.Monadic
 import Test.Tasty
 ------------------------------------------------------------------------------
+import Chainweb.BlockHeader
 import Chainweb.Graph (singletonChainGraph)
 import Chainweb.Mempool.InMem
 import Chainweb.Mempool.InMemTypes
@@ -38,14 +39,14 @@ tests = testGroup "Chainweb.Mempool.sync"
   where
     wf :: (InsertCheck -> MempoolBackend MockTx -> IO a) -> IO a
     wf f = do
-        mv <- newMVar (pure . V.map Right)
+        mv <- newMVar (const $ pure . V.map Right)
         let cfg = InMemConfig txcfg mockBlockGasLimit 0 2048 Right (checkMv mv) (1024 * 10)
         withInMemoryMempool cfg (barebonesTestVersion singletonChainGraph) $ f mv
 
-    checkMv :: MVar (t -> IO b) -> t -> IO b
-    checkMv mv xs = do
+    checkMv :: MVar (BlockHeader -> t -> IO b) -> BlockHeader -> t -> IO b
+    checkMv mv bh xs = do
         f <- readMVar mv
-        f xs
+        f bh xs
 
     gen :: PropertyM IO (Set MockTx, Set MockTx, Set MockTx)
     gen = do
@@ -67,7 +68,7 @@ txcfg = TransactionConfig mockCodec hasher hashmeta mockGasPrice
 
 testInMemCfg :: InMemConfig MockTx
 testInMemCfg =
-    InMemConfig txcfg mockBlockGasLimit 0 2048 Right (pure . V.map Right) (1024 * 10)
+    InMemConfig txcfg mockBlockGasLimit 0 2048 Right (const $ pure . V.map Right) (1024 * 10)
 
 propSync
     :: (Set MockTx, Set MockTx , Set MockTx)

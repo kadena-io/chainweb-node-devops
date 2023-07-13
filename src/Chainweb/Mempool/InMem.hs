@@ -321,7 +321,8 @@ insertCheckInMem cfg lock txs
 
     case withHashes of
         Left _ -> pure $! void withHashes
-        Right r -> void . sequenceA <$!> _inmemPreInsertBatchChecks cfg r
+        -- TODO: pass blockheader
+        Right r -> void . sequenceA <$!> _inmemPreInsertBatchChecks cfg undefined r
   where
     hasher :: t -> TransactionHash
     hasher = txHasher (_inmemTxCfg cfg)
@@ -446,7 +447,8 @@ insertCheckInMem' cfg lock txs
           let !h = hasher tx
           in (T2 h) <$> hush (validateOne cfg badmap curTxIdx now tx h)
 
-    V.mapMaybe hush <$!> _inmemPreInsertBatchChecks cfg withHashes
+    -- TODO: pass blockheader
+    V.mapMaybe hush <$!> _inmemPreInsertBatchChecks cfg undefined withHashes
   where
     txcfg = _inmemTxCfg cfg
     hasher = txHasher txcfg

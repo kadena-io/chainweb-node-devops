@@ -187,7 +187,7 @@ pactServer d =
       = sendHandler logger mempool
       :<|> pollHandler logger cdb cid pact mempool
       :<|> listenHandler logger cdb cid pact mempool
-      :<|> localHandler logger cdb pact
+      :<|> localHandler logger pact
 
     pactSpvHandler = spvHandler logger cdb cid
     pactSpv2Handler = spv2Handler logger cdb cid
@@ -353,7 +353,8 @@ localHandler logger pact preflight sigVerify rewindDepth cmd = do
       Left err ->
         throwError $ setErrText ("Validation failed: " <> T.pack err) err400
 
-    r <- liftIO $ _pactLocal pact preflight sigVerify rewindDepth cmd'
+    -- TODO: pass blockheader
+    r <- liftIO $ _pactLocal pact (undefined rewindDepth) preflight sigVerify cmd'
     case r of
       Left err -> throwError $ setErrText
         ("Execution failed: " <> T.pack (show err)) err400
@@ -413,7 +414,7 @@ spvHandler l cdb cid (SpvRequest rk (Pact.ChainId ptid)) = do
     -- get leaf block header for our chain from current best cut
     chainLeaf <- lookupCutM cid cut
 
-    T2 bhe _bha <- liftIO (_pactLookup pe (DoRewind chainLeaf) Nothing (pure ph)) >>= \case
+    T2 bhe _bha <- liftIO (_pactLookup pe chainLeaf Nothing (pure ph)) >>= \case
       Left e ->
         toErr $ "Internal error: transaction hash lookup failed: " <> sshow e
       Right v -> case HM.lookup ph v of
@@ -498,7 +499,7 @@ spv2Handler l cdb cid r = case _spvSubjectIdType sid of
         -- get leaf block header for our chain from current best cut
         chainLeaf <- lookupCutM cid cut
 
-        T2 bhe bha <- liftIO (_pactLookup pe (DoRewind chainLeaf) Nothing (pure ph)) >>= \case
+        T2 bhe bha <- liftIO (_pactLookup pe chainLeaf Nothing (pure ph)) >>= \case
             Left e ->
                 toErr $ "Internal error: transaction hash lookup failed: " <> sshow e
             Right v -> case HM.lookup ph v of
@@ -591,7 +592,7 @@ internalPoll
 internalPoll pdb bhdb mempool pactEx cut confDepth requestKeys0 = do
     -- get leaf block header for our chain from current best cut
     chainLeaf <- lookupCutM cid cut
-    results0 <- _pactLookup pactEx (DoRewind chainLeaf) confDepth requestKeys >>= either throwM return
+    results0 <- _pactLookup pactEx chainLeaf confDepth requestKeys >>= either throwM return
         -- TODO: are we sure that all of these are raised locally. This will cause the
         -- server to shut down the connection without returning a result to the user.
     let results1 = V.map (\rk -> (rk, HM.lookup (Pact.fromUntypedHash $ unRequestKey rk) results0)) requestKeysV

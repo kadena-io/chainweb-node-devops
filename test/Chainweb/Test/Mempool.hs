@@ -50,6 +50,7 @@ import Test.Tasty.QuickCheck hiding ((.&.))
 import Pact.Parse (ParsedDecimal(..))
 
 import Chainweb.BlockHash
+import Chainweb.BlockHeader
 import Chainweb.Mempool.Mempool
 import Chainweb.Test.Utils
 import qualified Chainweb.Time as Time
@@ -129,7 +130,8 @@ instance Arbitrary MockTx where
       zero = Time.Time (Time.TimeSpan (Time.Micros 0))
 
 type BatchCheck =
-    Vector (T2 TransactionHash MockTx)
+    BlockHeader
+    -> Vector (T2 TransactionHash MockTx)
     -> IO (V.Vector (Either (T2 TransactionHash InsertError)
                             (T2 TransactionHash MockTx)))
 
@@ -260,7 +262,7 @@ propPreInsert (txs, badTxs) gossipMV mempool =
 
   where
     go = runExceptT $ do
-        liftIO $ modifyMVar_ gossipMV $ const $ return checkNotBad
+        liftIO $ modifyMVar_ gossipMV $ const $ return $ const checkNotBad
         liftIO $ insert $ txs ++ badTxs
         liftIO (lookup txs) >>= V.mapM_ lookupIsPending
         liftIO (lookup badTxs) >>= V.mapM_ lookupIsMissing

@@ -6,6 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- |
@@ -39,7 +40,7 @@ import Test.Tasty.HUnit
 
 -- internal modules
 
-import Chainweb.BlockHeader (genesisBlockHeader)
+import Chainweb.BlockHeader (genesisBlockHeader, BlockHeader)
 import Chainweb.BlockHeaderDB (BlockHeaderDb)
 import Chainweb.Graph
 import Chainweb.Miner.Pact
@@ -463,7 +464,7 @@ checkLocalSuccess test (Right cr) = test $ _crResult cr
 testAllowReadsLocalFails :: LocalTest
 testAllowReadsLocalFails = (tx,test)
   where
-    tx = buildCwCmd $ mkCmd "testAllowReadsLocalFails" $
+    tx = fmap (undefined,) $ buildCwCmd $ mkCmd "testAllowReadsLocalFails" $
          mkExec' "(read coin.coin-table \"sender00\")"
     test = checkLocalSuccess $
       checkPactResultFailure "testAllowReadsLocalFails" "Enforce non-upgradeability"
@@ -471,7 +472,7 @@ testAllowReadsLocalFails = (tx,test)
 testAllowReadsLocalSuccess :: LocalTest
 testAllowReadsLocalSuccess = (tx,test)
   where
-    tx = buildCwCmd $ mkCmd "testAllowReadsLocalSuccess" $
+    tx = fmap (undefined,) $ buildCwCmd $ mkCmd "testAllowReadsLocalSuccess" $
          mkExec' "(at 'balance (read coin.coin-table \"sender00\"))"
     test = checkLocalSuccess $
       checkPactResultSuccessLocal "testAllowReadsLocalSuccess" $
@@ -531,7 +532,7 @@ execTxsTest runPact name (trans',check) = testCaseSch name (go >>= check)
             (toHashCommandResult $ _transactionCoinbase results)
         Left e -> return $ Left $ show e
 
-type LocalTest = (IO ChainwebTransaction,Either String (CommandResult Hash) -> Assertion)
+type LocalTest = (IO (BlockHeader, ChainwebTransaction),Either String (CommandResult Hash) -> Assertion)
 
 execLocalTest
     :: CanReadablePayloadCas tbl
@@ -539,12 +540,12 @@ execLocalTest
     -> String
     -> LocalTest
     -> ScheduledTest
-execLocalTest runPact name (trans',check) = testCaseSch name (go >>= check)
+execLocalTest runPact name (bhWithTrans,check) = testCaseSch name (go >>= check)
   where
     go = do
-      trans <- trans'
+      (bh, trans) <- bhWithTrans
       results' <- tryAllSynchronous $ runPact $ \_ ->
-        execLocal trans Nothing Nothing Nothing
+        execLocal bh trans Nothing Nothing
       case results' of
         Right (MetadataValidationFailure e) ->
           return $ Left $ show e
