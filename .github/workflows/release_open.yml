@@ -190,6 +190,7 @@ jobs:
       #oom_score_adj: 
 
       - name: Generate release message
+        continue-on-error: true
         env:
           UBUNTU_22_NODE: ${{ env.UBUNTU_22_NODE }}
           UBUNTU_20_NODE: ${{ env.UBUNTU_20_NODE }}
@@ -201,7 +202,7 @@ jobs:
         run: |
           pwd
           ls
-          sed "/$VERSION_OLD\s/,\$d" CHANGELOG.md | sed "/$VERSION_NEW (20/d" | 'sed /sChangelog/d'
+          sed "/$VERSION_OLD\s/,\$d" CHANGELOG.md | sed "/$VERSION_NEW (20/d" | sed '\s/Changelog/d'
           echo 'Official release: https://github.com/kadena-io/chainweb-node/releases/tag/${{ env.VERSION_NEW }}
           
             For full details refer to the [Changelog](https://github.com/kadena-io/chainweb-node/blob/master/CHANGELOG.md)
