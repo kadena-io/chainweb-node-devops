@@ -15,21 +15,23 @@ on:
       new_tag:
         description: "The X.Y.Z tag for the new version"
         type: string
+        required: true
       old_tag:
         description: "The X.Y.Z of the old version"
         type: string
-      tag_default_bump:
-        description: "Auto-bump release version id"
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-          - none
+        required: true
+#       tag_default_bump:
+#         description: "Auto-bump release version id"
+#         type: choice
+#         options:
+#           - patch
+#           - minor
+#           - major
+#           - none
       dry_run:
         description: "Disable actually pushing docker containers and whatnot"
         type: boolean
-        default: false
+        default: true
   
 jobs:
   release-binaries:
@@ -53,7 +55,8 @@ jobs:
           if [[ ! -z ${{ inputs.release_sha }} ]]; then
             RELEASE_SHA=${{ inputs.release_sha }}
           fi
-          echo "SHORT_REVISION=$(echo $RELEASE_SHA | cut -c 1-7)" >> $GITHUB_ENV
+          SHORT_REVISION=$(echo $RELEASE_SHA | cut -c 1-7)
+          echo "SHORT_REVISION=$SHORT_REVISION" >> $GITHUB_ENV
           #echo "VERSION_NEW=${{ steps.tag_version.outputs.new_tag }}" >> $GITHUB_ENV
           #echo "VERSION_OLD=${{ steps.tag_version.outputs.old_tag }}" >> $GITHUB_ENV
           echo "VERSION_NEW=${{ inputs.new_tag }}" >> $GITHUB_ENV
