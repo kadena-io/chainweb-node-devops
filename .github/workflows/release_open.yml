@@ -4,7 +4,7 @@ name: Release - chainweb-node - binary release scripts
 # Designed to run systems in chainweb/binary-release 
 
 
-run-name: "Release chainweb-node with ${{ inputs.chainweb-node-image }}"
+run-name: "Release chainweb-node ${{ inputs.release_sha }} from ${{ github.sha}}"
 on:
   workflow_dispatch:
     inputs:
@@ -43,7 +43,7 @@ jobs:
       - name: Set environment variables for release
         run: |
           RELEASE_SHA=${{ github.sha }}
-          if [[ ! -z ${ inputs.release_sha }]]; then
+          if [[ ! -z ${{ inputs.release_sha }} ]]; then
             RELEASE_SHA=${{ inputs.release_sha }}
           fi
           echo "SHORT_REVISION=$(echo $RELEASE_SHA | cut -c 1-7)" >> $GITHUB_ENV
