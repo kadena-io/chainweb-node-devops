@@ -1,25 +1,237 @@
-name: Release - Open New Release
-run-name: Release ${{ inputs.release-version }} - Begin release process
+name: Release - chainweb-node - binary release scripts
 
+## Release automation for chainweb-node
+# Designed to run systems in chainweb/binary-release 
+
+
+run-name: "Release chainweb-node with ${{ inputs.chainweb-node-image }}"
 on:
   workflow_dispatch:
     inputs:
-      release-version:
-        description: Version number for new release
-        required: true
+      release_sha:
+        description: "hash of chainweb-node release, default to branch running this job"
         type: string
-
+        required: false
+      tag_default_bump:
+        description: "Bump release version id"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - none
+      dry_run:
+        description: "Disable actually pushing docker containers and whatnot"
+        type: boolean
+        default: false
+  
 jobs:
-  release-branch-fork:
+  release-binaries:
     runs-on: ubuntu-latest
     steps:
-      - id: Create release fork
-        uses: peterjgrainger/action-create-branch@v2.2.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # if this plugin is bad we just override it
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.1
         with:
-          branch: '/refs/heads/release-candidate/${{ inputs.release-version }}'
-          sha: '${{ github.event.pull_request.head.sha }}'
-      - id: Lock master - not implemented
-      - id: update the freeze file? or do during release close
-      
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: ${{ inputs.tag_default_bump }}
+          tag_prefix: ""
+          #commit_sha: ${{ inputs.release_sha }}
+      # This is up here so we can adjust the way we handle package bumping etc
+      # might not want to use the above plugin/don't want to depend on its outputs
+      - name: Set environment variables for release
+        run: |
+          RELEASE_SHA=${{ github.sha }}
+          if [[ ! -z ${ inputs.release_sha }]]; then
+            RELEASE_SHA=${{ inputs.release_sha }}
+          fi
+          echo "SHORT_REVISION=$(echo $RELEASE_SHA | cut -c 1-7)" >> $GITHUB_ENV
+          echo "VERSION_NEW=${{ steps.tag_version.outputs.new_tag }}" >> $GITHUB_ENV
+          echo "VERSION_OLD=${{ steps.tag_version.outputs.old_tag }}" >> $GITHUB_ENV
+          echo "IMAGE=ghcr.io/kadena-io/chainweb-node:sha-$SHORT_REVISION" >> $GITHUB_ENV
+          echo $GITHUB_ENV
+
+      #- name: derive release id from branch name
+      # if this was a release branch we'd do this to override the inputs
+        # first run we are releasing from master (release branch kinda not needed if we just force release build logic during 'freeze')
+      # The release actions out there sometimes will just do this increment for us
+      - name: UBUNTU IMAGE bump end-user docker image 
+        continue-on-error: true
+        run: |
+          if [[ ${{ inputs.dry_run }}; then 
+          sed -i -e "s/ARG REVISION=.*/ARG REVISION=$SHORT_REVISION/" Dockerfile
+          docker build -t kadena/chainweb-node:$VERSION_NEW .
+          docker run --rm kadena/chainweb-node:$VERSION_NEW ./chainweb-node --version
+          git add Dockerfile
+          git commit -m "chainweb-node version $VERSION_NEW"
+          git tag chainweb-$VERSION_NEW
+          git push
+          git push origin chainweb-$VERSION_NEW
+          # log into docker hub?
+          docker push kadena/chainweb-node:$VERSION_NEW
+          docker tag kadena/chainweb-node:$VERSION_NEW kadena/chainweb-node:latest
+          docker push kadena/chainweb-node:latest
+          
+          ## spit these to output
+          digest1=docker inspect kadena/chainweb-node:$VERSION_NEW --format '{{ .RepoDigests }}'
+          digest2=docker inspect kadena/chainweb-node:latest --format '{{ .RepoDigests }}'
+          if [[ $digest1 != $digest2 ]]; then
+            echo "DOCKERHUB_SHA=sha mismatches in dockerhub image" >> $GITHUB_ENV
+            exit 1
+          fi
+          echo "DOCKERHUB_SHA=$digest1" >> $GITHUB_ENV
+          
+      # all of this should really just be a BUMP IMAGE VERSION step in the other repo
+          # Now in this workflow, trigger the above, spit output into release notes file 
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: retag ghcr docker images
+        continue-on-error: true
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          SHORT_REVISION: ${{ env.SHORT_REVISION }}
+          VERSION_NEW: ${{ env.VERSION_NEW }}
+        run: |
+          docker pull $IMAGE
+          docker run --rm $IMAGE --version
+          docker tag ghcr.io/kadena-io/chainweb-node:sha-$SHORT_REVISION ghcr.io/kadena-io/chainweb-node/ubuntu:$VERSION_NEW
+          docker tag ghcr.io/kadena-io/chainweb-node:sha-$SHORT_REVISION ghcr.io/kadena-io/chainweb-node/ubuntu:latest
+
+          docker image ls
+          
+          if [[ ! ${{ inputs.dry_run }} ]]; then 
+            docker push ghcr.io/kadena-io/chainweb-node/ubuntu:$VERSION_NEW
+            docker push ghcr.io/kadena-io/chainweb-node/ubuntu:latest
+          fi
+          
+          digest1=docker inspect ghcr.io/kadena-io/chainweb-node:sha-$SHORT_REVISION --format '{{ .RepoDigests }}'
+          digest2=docker inspect ghcr.io/kadena-io/chainweb-node/ubuntu:$VERSION_NEW --format '{{ .RepoDigests }}'
+          digest3=docker inspect ghcr.io/kadena-io/chainweb-node/ubuntu:latest --format '{{ .RepoDigests }}'
+          if [[ "$digest1" != "$digest2" || "$digest2" != "$digest3" ]]; then
+            echo "GHCR_DIGEST=GHCR digests do not compare correctly" >> $GITHUB_ENV
+            exit 1
+          fi
+          echo "GHCR_DIGEST=$digest1" >> $GITHUB_ENV
+
+      - name: run release script to generate images
+        id: repack-binaries
+        env:
+          SHORT_REVISION: ${{ env.SHORT_REVISION }}
+          VERSION_NEW: ${{ env.VERSION_NEW }}
+        run: |
+          
+          GHC_VER=8.10.7
+          
+          UBUNTU_20_TAR=chainweb.$GHC_VER.ubuntu-20.04.$SHORT_REVISION.tar.gz
+          UBUNTU_22_TAR=chainweb.$GHC_VER.ubuntu-22.04.$SHORT_REVISION.tar.gz
+          
+          UBUNTU_20_NODE=chainweb-$VERSION_NEW.ghc-$GHC_VER.ubuntu-20.04.$SHORT_REVISION.tar.gz
+          UBUNTU_22_NODE=chainweb-$VERSION_NEW.ghc-$GHC_VER.ubuntu-22.04.$SHORT_REVISION.tar.gz
+          
+          curl "s3.us-east-1.amazonaws.com/kadena-cabal-cache/chainweb-node/$UBUNTU_20_TAR" -o "./$UBUNTU_20_TAR"
+          curl "s3.us-east-1.amazonaws.com/kadena-cabal-cache/chainweb-node/$UBUNTU_22_TAR" -o "./$UBUNTU_22_TAR"
+          
+          tar xvfz "$UBUNTU_20_TAR" chainweb/chainweb-node
+          mv chainweb/chainweb-node .
+          tar cvfz "$UBUNTU_20_NODE" chainweb-node
+          rm -fr chainweb-node chainweb
+          
+          tar xvfz "$UBUNTU_22_TAR" chainweb/chainweb-node
+          mv chainweb/chainweb-node .
+          tar cvfz "$UBUNTU_22_NODE" chainweb-node
+          rm -fr chainweb-node chainweb
+          
+          echo "UBUNTU_20_SHA=$(shasum -a 256 $UBUNTU_20_NODE)" >> $GITHUB_ENV
+          echo "UBUNTU_22_SHA=$(shasum -a 256 $UBUNTU_22_NODE)" >> $GITHUB_ENV
+          shasum -a 256 "$UBUNTU_22_NODE"
+          echo "UBUNTU_20_NODE=$UBUNTU_20_NODE" >> $GITHUB_ENV
+          echo "UBUNTU_22_NODE=$UBUNTU_22_NODE" >> $GITHUB_ENV
+
+      #- name: generate release message
+      # could generate this from the changelog.md, though changelog.md could be itself generated...
+      #oom_score_adj: 
+      - uses: actions/checkout@v3
+        with:
+           repository: kadena-io/chainweb-node
+           sparse-checkout: |
+             CHANGELOG.md
+
+      - name: Generate release message
+        env:
+          UBUNTU_22_NODE: ${{ env.UBUNTU_22_NODE }}
+          UBUNTU_20_NODE: ${{ env.UBUNTU_20_NODE }}
+          IMAGE: ${{ env.IMAGE }}
+          SHORT_REVISION: ${{ env.SHORT_REVISION }}
+          VERSION_NEW: ${{ env.VERSION_NEW }}
+          VERSION_OLD: ${{ env.VERSION_OLD }}
+          GHCR_DIGEST: ${{ env.GHCR_DIGEST }}
+        working-directory: chainweb-node
+        run: |
+          pwd
+          ls
+          sed -i "/$VERSION_OLD\s/,\$d" CHANGELOG.md
+          cat << EOF >> CHANGELOG.md
+            Official release: https://github.com/kadena-io/chainweb-node/releases/tag/$VERSION_NEW
+
+            For full details refer to the [Changelog](https://github.com/kadena-io/chainweb-node/blob/master/CHANGELOG.md)
+
+            ### Container Images:
+
+            *   [End-user image](https://hub.docker.com/r/kadena/chainweb-node)
+            Image Digest: `${{ env.DOCKERHUB_SHA }}`
+            ```sh
+            docker pull kadena/chainweb-node:${{ env.VERSION_NEW }}
+            ```
+            
+            *   [Binary-only Ubuntu-20.04](ghcr.io/kadena-io/chainweb-node/ubuntu:${{ env.VERSION_NEW }})
+            Image Digest: `${{ env.GHCR_DIGEST }}`
+            ```sh
+            docker pull ghcr.io/kadena-io/chainweb-node/ubuntu:${{ env.VERSION_NEW }}
+            ```
+        
+            ### Ubuntu Binaries:
+            
+            SHA256 Hashes
+            
+            ```
+            ${{ env.UBUNTU_22_SHA }}
+            ${{ env.UBUNTU_20_SHA }}
+            ```
+            cat CHANGELOG.md
+            
+            The following dependencies must be installed on the system:
+            
+            *   ubuntu-20.04:
+                ```sh
+                apt-get install ca-certificates libgmp10 libssl1.1 libsnappy1v5 zlib1g liblz4-1 libbz2-1.0 libgflags2.2 zstd
+                ```
+            *   ubuntu-22.04:
+                ```sh
+                apt-get install ca-certificates libgmp10 libssl3 libsnappy1v5 zlib1g liblz4-1 libbz2-1.0 libgflags2.2 zstd
+                ```
+          EOF
+          
+      - name: Release
+        uses: ncipollo/release-action@v1
+        #if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body_path: ./chainweb-node/CHANGELOG.md
+          artifacts: "${{ steps.repack-binaries.outputs.UBUNTU_20_NODE }},${{ steps.repack-binaries.outputs.UBUNTU_22_NODE }}"
+          token: ${{ github.token }}
+          tag: ${{ env.VERSION_NEW }}
+          name: ${{ env.VERSION_NEW }}
+          omitBodyDuringUpdate: true
+          draft: true
+        env:
+          GITHUB_REPOSITORY: kadena-io/chainweb-node-devops
+
+      - name: Deploy to mainnet api.chainweb.com
+        run: |
+          echo "This will be a remote trigger in a bit here" >> $GITHUB_STEP_SUMMARY
