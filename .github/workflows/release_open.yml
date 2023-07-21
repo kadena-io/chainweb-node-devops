@@ -29,7 +29,7 @@ on:
 #           - major
 #           - none
       dry_run:
-        description: "Disable actually pushing docker containers and whatnot"
+        description: "Disable actually pushing docker containers"
         type: boolean
         default: true
   
@@ -194,11 +194,10 @@ jobs:
           pwd
           ls
           sed -i "/$VERSION_OLD\s/,\$d" CHANGELOG.md
-          CHANGE_LINES=$(cat << EOF
-            Official release: https://github.com/kadena-io/chainweb-node/releases/tag/${{ env.VERSION_NEW }}
-
-            For full details refer to the [Changelog](https://github.com/kadena-io/chainweb-node/blob/master/CHANGELOG.md)
-
+          echo 'Official release: https://github.com/kadena-io/chainweb-node/releases/tag/${{ env.VERSION_NEW }}
+          
+          For full details refer to the [Changelog](https://github.com/kadena-io/chainweb-node/blob/master/CHANGELOG.md)\n
+          
             ### Container Images:
 
             *   [End-user image](https://hub.docker.com/r/kadena/chainweb-node)
@@ -233,9 +232,8 @@ jobs:
                 ```sh
                 apt-get install ca-certificates libgmp10 libssl3 libsnappy1v5 zlib1g liblz4-1 libbz2-1.0 libgflags2.2 zstd
                 ```
-          EOF
-          )
-          echo $CHANGE_LINES >> CHANGELOG.md
+          ' >> CHANGELOG.md
+          cat CHANGELOG.md
           
       - name: Release
         uses: ncipollo/release-action@v1
