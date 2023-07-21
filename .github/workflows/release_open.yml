@@ -34,7 +34,7 @@ on:
         default: true
   
 jobs:
-  release-binaries:
+  Finalize-release:
     runs-on: ubuntu-latest
     steps:
     # if this plugin is bad we just override it
@@ -190,7 +190,6 @@ jobs:
           VERSION_NEW: ${{ env.VERSION_NEW }}
           VERSION_OLD: ${{ env.VERSION_OLD }}
           GHCR_DIGEST: ${{ env.GHCR_DIGEST }}
-        working-directory: chainweb-node
         run: |
           pwd
           ls
