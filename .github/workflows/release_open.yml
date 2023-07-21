@@ -12,8 +12,14 @@ on:
         description: "hash of chainweb-node release, default to branch running this job"
         type: string
         required: false
+      new_version_tag:
+        description: "The X.Y.Z tag for the new version"
+        type: string
+      old_version_tag:
+        description: "The X.Y.Z of the old version"
+        type: string
       tag_default_bump:
-        description: "Bump release version id"
+        description: "Auto-bump release version id"
         type: choice
         options:
           - patch
@@ -37,9 +43,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: ${{ inputs.tag_default_bump }}
           tag_prefix: ""
-          #commit_sha: ${{ inputs.release_sha }}
+          commit_sha: ${{ inputs.release_sha }}
       # This is up here so we can adjust the way we handle package bumping etc
       # might not want to use the above plugin/don't want to depend on its outputs
+      # yeah that thing is for rapid releasing tbh
       - name: Set environment variables for release
         run: |
           RELEASE_SHA=${{ github.sha }}
@@ -52,7 +59,7 @@ jobs:
           echo "IMAGE=ghcr.io/kadena-io/chainweb-node:sha-$SHORT_REVISION" >> $GITHUB_ENV
           echo $GITHUB_ENV
 
-      #- name: derive release id from branch name
+      #- name: derive release id from branch name?
       # if this was a release branch we'd do this to override the inputs
         # first run we are releasing from master (release branch kinda not needed if we just force release build logic during 'freeze')
       # The release actions out there sometimes will just do this increment for us
