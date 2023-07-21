@@ -29,7 +29,7 @@ on:
 #           - major
 #           - none
       dry_run:
-        description: "Disable actually pushing docker containers"
+        description: "dry run (debugging)"
         type: boolean
         default: true
   
@@ -197,10 +197,10 @@ jobs:
         run: |
           pwd
           ls
-          sed -i "/$VERSION_OLD\s/,\$d" CHANGELOG.md
+          sed "/$VERSION_OLD\s/,\$d" CHANGELOG.md | sed "/$VERSION_NEW (20/d" | 'sed /sChangelog/d'
           echo 'Official release: https://github.com/kadena-io/chainweb-node/releases/tag/${{ env.VERSION_NEW }}
           
-          For full details refer to the [Changelog](https://github.com/kadena-io/chainweb-node/blob/master/CHANGELOG.md)\n
+            For full details refer to the [Changelog](https://github.com/kadena-io/chainweb-node/blob/master/CHANGELOG.md)
           
             ### Container Images:
 
@@ -224,8 +224,7 @@ jobs:
             ${{ env.UBUNTU_22_SHA }}
             ${{ env.UBUNTU_20_SHA }}
             ```
-            cat CHANGELOG.md
-            
+          
             The following dependencies must be installed on the system:
             
             *   ubuntu-20.04:
