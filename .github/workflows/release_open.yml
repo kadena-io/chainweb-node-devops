@@ -60,6 +60,10 @@ jobs:
         continue-on-error: true
         run: |
           if [[ ${{ inputs.dry_run }}; then 
+            echo "DOCKERHUB_SHA=we did not actually update dockerhub" >> $GITHUB_ENV
+            echo "Skipping the batteries-included image steps as it should be a remote trigger" >> $GITHUB_STEP_STATUS
+            exit 0
+          fi
           sed -i -e "s/ARG REVISION=.*/ARG REVISION=$SHORT_REVISION/" Dockerfile
           docker build -t kadena/chainweb-node:$VERSION_NEW .
           docker run --rm kadena/chainweb-node:$VERSION_NEW ./chainweb-node --version
