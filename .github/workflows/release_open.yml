@@ -194,8 +194,8 @@ jobs:
           pwd
           ls
           sed -i "/$VERSION_OLD\s/,\$d" CHANGELOG.md
-          cat << EOF >> CHANGELOG.md
-            Official release: https://github.com/kadena-io/chainweb-node/releases/tag/$VERSION_NEW
+          CHANGE_LINES=$(cat << EOF
+            Official release: https://github.com/kadena-io/chainweb-node/releases/tag/${{ env.VERSION_NEW }}
 
             For full details refer to the [Changelog](https://github.com/kadena-io/chainweb-node/blob/master/CHANGELOG.md)
 
@@ -234,12 +234,14 @@ jobs:
                 apt-get install ca-certificates libgmp10 libssl3 libsnappy1v5 zlib1g liblz4-1 libbz2-1.0 libgflags2.2 zstd
                 ```
           EOF
+          )
+          echo $CHANGE_LINES >> CHANGELOG.md
           
       - name: Release
         uses: ncipollo/release-action@v1
         #if: startsWith(github.ref, 'refs/tags/')
         with:
-          body_path: ./chainweb-node/CHANGELOG.md
+          bodyFile: CHANGELOG.md
           artifacts: "${{ steps.repack-binaries.outputs.UBUNTU_20_NODE }},${{ steps.repack-binaries.outputs.UBUNTU_22_NODE }}"
           token: ${{ github.token }}
           tag: ${{ env.VERSION_NEW }}
