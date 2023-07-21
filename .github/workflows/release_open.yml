@@ -244,7 +244,7 @@ jobs:
         #if: startsWith(github.ref, 'refs/tags/')
         with:
           bodyFile: CHANGELOG.md
-          artifacts: "${{ steps.repack-binaries.outputs.UBUNTU_20_NODE }},${{ steps.repack-binaries.outputs.UBUNTU_22_NODE }}"
+          artifacts: "${{ env.UBUNTU_20_NODE }},${{ env.UBUNTU_22_NODE }}"
           token: ${{ github.token }}
           tag: ${{ env.VERSION_NEW }}
           commit: ${{ env.RELEASE_SHA }}
