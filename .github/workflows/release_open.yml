@@ -49,6 +49,7 @@ jobs:
       # This is up here so we can adjust the way we handle package bumping etc
       # might not want to use the above plugin/don't want to depend on its outputs
       # yeah that thing is for rapid releasing tbh
+    
       - name: Set environment variables for release
         run: |
           RELEASE_SHA=${{ github.sha }}
@@ -65,6 +66,12 @@ jobs:
           echo "IMAGE=ghcr.io/kadena-io/chainweb-node:sha-$SHORT_REVISION" >> $GITHUB_ENV
           echo $GITHUB_ENV
 
+      - uses: actions/checkout@v3
+        with:
+           repository: kadena-io/chainweb-node
+           ref: ${{ env.RELEASE_SHA }}
+           sparse-checkout: 'CHANGELOG.md'
+           
       #- name: derive release id from branch name?
       # if this was a release branch we'd do this to override the inputs
         # first run we are releasing from master (release branch kinda not needed if we just force release build logic during 'freeze')
@@ -137,6 +144,7 @@ jobs:
           fi
           echo "GHCR_DIGEST=$digest1" >> $GITHUB_ENV
 
+
       - name: run release script to generate images
         id: repack-binaries
         env:
@@ -176,11 +184,6 @@ jobs:
       #- name: generate release message
       # could generate this from the changelog.md, though changelog.md could be itself generated...
       #oom_score_adj: 
-      - uses: actions/checkout@v3
-        with:
-           repository: kadena-io/chainweb-node
-           sparse-checkout: |
-             CHANGELOG.md
 
       - name: Generate release message
         env:
