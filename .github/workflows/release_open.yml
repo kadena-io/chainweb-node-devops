@@ -71,7 +71,7 @@ jobs:
       - name: UBUNTU IMAGE bump end-user docker image 
         continue-on-error: true
         run: |
-          if [[ ${{ inputs.dry_run }}; then 
+          if [[ ${{ inputs.dry_run }} ]]; then 
             echo "DOCKERHUB_SHA=we did not actually update dockerhub" >> $GITHUB_ENV
             echo "Skipping the batteries-included image steps as it should be a remote trigger" >> $GITHUB_STEP_STATUS
             exit 0
