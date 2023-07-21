@@ -115,6 +115,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: tag git sha with release version
+        run: |
+          git tag ${{ env.VERSION_NEW }} ${{ env.RELEASE_SHA }}
+          git push --tags
 
       - name: retag ghcr docker images
         continue-on-error: true
