@@ -254,6 +254,7 @@ jobs:
           commit: ${{ env.RELEASE_SHA }}
           name: ${{ env.VERSION_NEW }}
           omitBodyDuringUpdate: true
+          skipIfReleaseExists: true
           draft: true
 
 
