@@ -68,7 +68,6 @@ jobs:
 
       - uses: actions/checkout@v3
         with:
-           repository: kadena-io/chainweb-node
            ref: ${{ env.RELEASE_SHA }}
            sparse-checkout: 'CHANGELOG.md'
            
