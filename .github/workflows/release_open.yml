@@ -55,6 +55,7 @@ jobs:
           if [[ ! -z ${{ inputs.release_sha }} ]]; then
             RELEASE_SHA=${{ inputs.release_sha }}
           fi
+          echo "RELEASE_SHA=$RELEASE_SHA" >> $GITHUB_ENV
           SHORT_REVISION=$(echo $RELEASE_SHA | cut -c 1-7)
           echo "SHORT_REVISION=$SHORT_REVISION" >> $GITHUB_ENV
           #echo "VERSION_NEW=${{ steps.tag_version.outputs.new_tag }}" >> $GITHUB_ENV
@@ -243,7 +244,7 @@ jobs:
           artifacts: "${{ steps.repack-binaries.outputs.UBUNTU_20_NODE }},${{ steps.repack-binaries.outputs.UBUNTU_22_NODE }}"
           token: ${{ github.token }}
           tag: ${{ env.VERSION_NEW }}
-          commit: ${{ env.SHORT_REVISION }}
+          commit: ${{ env.RELEASE_SHA }}
           name: ${{ env.VERSION_NEW }}
           omitBodyDuringUpdate: true
           draft: true
