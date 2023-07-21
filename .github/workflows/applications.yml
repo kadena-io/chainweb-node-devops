@@ -1,6 +1,7 @@
 name: Build and publish application binaries
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       debugInfo:
