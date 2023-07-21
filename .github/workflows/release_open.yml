@@ -12,10 +12,10 @@ on:
         description: "hash of chainweb-node release, default to branch running this job"
         type: string
         required: false
-      new_version_tag:
+      new_tag:
         description: "The X.Y.Z tag for the new version"
         type: string
-      old_version_tag:
+      old_tag:
         description: "The X.Y.Z of the old version"
         type: string
       tag_default_bump:
@@ -36,14 +36,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     # if this plugin is bad we just override it
-      - name: Bump version and push tag
-        id: tag_version
-        uses: mathieudutour/github-tag-action@v6.1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          default_bump: ${{ inputs.tag_default_bump }}
-          tag_prefix: ""
-          commit_sha: ${{ inputs.release_sha }}
+#       - name: Bump version and push tag
+#         id: tag_version
+#         uses: mathieudutour/github-tag-action@v6.1
+#         with:
+#           github_token: ${{ secrets.GITHUB_TOKEN }}
+#           default_bump: ${{ inputs.tag_default_bump }}
+#           tag_prefix: ""
+#           commit_sha: ${{ inputs.release_sha }}
       # This is up here so we can adjust the way we handle package bumping etc
       # might not want to use the above plugin/don't want to depend on its outputs
       # yeah that thing is for rapid releasing tbh
@@ -54,8 +54,10 @@ jobs:
             RELEASE_SHA=${{ inputs.release_sha }}
           fi
           echo "SHORT_REVISION=$(echo $RELEASE_SHA | cut -c 1-7)" >> $GITHUB_ENV
-          echo "VERSION_NEW=${{ steps.tag_version.outputs.new_tag }}" >> $GITHUB_ENV
-          echo "VERSION_OLD=${{ steps.tag_version.outputs.old_tag }}" >> $GITHUB_ENV
+          #echo "VERSION_NEW=${{ steps.tag_version.outputs.new_tag }}" >> $GITHUB_ENV
+          #echo "VERSION_OLD=${{ steps.tag_version.outputs.old_tag }}" >> $GITHUB_ENV
+          echo "VERSION_NEW=${{ inputs.new_tag }}" >> $GITHUB_ENV
+          echo "VERSION_OLD=${{ inputs.old_tag }}" >> $GITHUB_ENV
           echo "IMAGE=ghcr.io/kadena-io/chainweb-node:sha-$SHORT_REVISION" >> $GITHUB_ENV
           echo $GITHUB_ENV
 
@@ -237,11 +239,11 @@ jobs:
           artifacts: "${{ steps.repack-binaries.outputs.UBUNTU_20_NODE }},${{ steps.repack-binaries.outputs.UBUNTU_22_NODE }}"
           token: ${{ github.token }}
           tag: ${{ env.VERSION_NEW }}
+          commit: ${{ env.SHORT_REVISION }}
           name: ${{ env.VERSION_NEW }}
           omitBodyDuringUpdate: true
           draft: true
-        env:
-          GITHUB_REPOSITORY: kadena-io/chainweb-node-devops
+
 
       - name: Deploy to mainnet api.chainweb.com
         run: |
